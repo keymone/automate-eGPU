@@ -23,6 +23,7 @@
 #          2) sudo ./automate-eGPU.sh
 #          3) sudo ./automate-eGPU.sh -a		
 
+SED=$(if [ -x /usr/bin/sed ]; then echo /usr/bin/sed; else which sed; fi)
 ver="0.9.7"
 logname="$(logname)"
 first_argument="$1"
@@ -59,7 +60,7 @@ amd=0
 amd_x4000_codenames=(Bonaire Hawaii Pitcairn Tahiti Tonga Verde Fiji)
 amd_x3000_codenames=(Barts Caicos Cayman Cedar Cypress Juniper Lombok Redwood Turks)
 amd_controllers=(5000 6000 7000 8000 9000)
-board_id=$(ioreg -c IOPlatformExpertDevice -d 2 | grep board-id | sed "s/.*<\"\(.*\)\">.*/\1/")
+board_id=$(ioreg -c IOPlatformExpertDevice -d 2 | grep board-id | $SED "s/.*<\"\(.*\)\">.*/\1/")
 
 function GenerateDaemonPlist()
 {
@@ -420,7 +421,7 @@ function GetDownloadURL()
 	index=0
 	download_url=""
 	download_version=""
-	previous_installed_web_driver_version=$(system_profiler SPInstallHistoryDataType | sed -e '/NVIDIA Web Driver/,/Install Date/!d' | sed -E '/Version/!d' | tail -1 | sed -E 's/.*Version: (.*)$/\1/')
+	previous_installed_web_driver_version=$(system_profiler SPInstallHistoryDataType | $SED -e '/NVIDIA Web Driver/,/Install Date/!d' | $SED -E '/Version/!d' | tail -1 | $SED -E 's/.*Version: (.*)$/\1/')
 	
 	curl -s "https://gfe.nvidia.com/mac-update" > $TMPDIR"mac-update.plist"
 
@@ -530,17 +531,17 @@ function GetDriverList()
 	list0=$(curl -s -H "X-Requested-With: XMLHttpRequest" "http://www.nvidia.com/Download/processFind.aspx?psid=73&pfid=696&osid="$os_id"&lid=1&whql=&lang=en-us&ctk=0")
 	list="$(echo "$list0 "| grep 'New in Release')"
 					
-	value1="$(echo "$list "| sed -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* [0-9]+\.[0-9]+\.[0-9]+ \([A-Z0-9]+\).*/\1/')"
-	value2="$(echo "$list "| sed -E 's/.*in Release [0-9]+\.[0-9]+\.[a-z0-9]+\:.* ([0-9]+\.[0-9]+\.[0-9]+) \([A-Z0-9]+\).*/\1/')"
-	value3="$(echo "$list "| sed -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* [0-9]+\.[0-9]+\.[0-9]+ \(([A-Z0-9]+)\).*/\1/')"
+	value1="$(echo "$list "| $SED -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* [0-9]+\.[0-9]+\.[0-9]+ \([A-Z0-9]+\).*/\1/')"
+	value2="$(echo "$list "| $SED -E 's/.*in Release [0-9]+\.[0-9]+\.[a-z0-9]+\:.* ([0-9]+\.[0-9]+\.[0-9]+) \([A-Z0-9]+\).*/\1/')"
+	value3="$(echo "$list "| $SED -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* [0-9]+\.[0-9]+\.[0-9]+ \(([A-Z0-9]+)\).*/\1/')"
 	
 	value4="$(echo "$list0 "| perl -ne 'print if s/.*([0-9]{3}\.[0-9]{2}\.[a-z0-9]{5}).*/\1/')"
 	
 	if [[ $value1 =~ (^[0-9]+\.[0-9]+\.[a-z0-9]+)+ ]] && [[ $value2 =~ (^[0-9]+\.[0-9]+\.[a-z0-9]+)+ ]] && [[ $value3 =~ (^[0-9]+\.[0-9]+\.[a-z0-9]+)+ ]]
 	then
 		driver_list_available=1
-		list=$(echo "$list" | sed -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* ([0-9]+\.[0-9]+\.[0-9]+) \(([A-Z0-9]+)\).*/\1 for \2 (\3)/')
-		download_version=$(echo "$list" | sed -n 1p | sed -E "s/^([0-9]+\.[0-9]+\.[0-9a-z]+).*/\1/")
+		list=$(echo "$list" | $SED -E 's/.*in Release ([0-9]+\.[0-9]+\.[a-z0-9]+)\:.* ([0-9]+\.[0-9]+\.[0-9]+) \(([A-Z0-9]+)\).*/\1 for \2 (\3)/')
+		download_version=$(echo "$list" | $SED -n 1p | $SED -E "s/^([0-9]+\.[0-9]+\.[0-9a-z]+).*/\1/")
 	elif [[ $value4 =~ ^[0-9]+\.[0-9]+\.[a-z0-9]+ ]]
 	then
 		list=$(echo $value4 "for" $product_version "("$build_version")")
@@ -565,7 +566,7 @@ function ScrapeOperatingSystemId()
 {
 	os_id=$(curl -s -H "X-Requested-With: XMLHttpRequest" "http://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=4&ParentID=73" \
 				| perl -pe 's/[\x0D]//g' \
-				| sed -E "s/.*<Name>Mac OS X [A-Za-z ]+ "$product_version$"<\/Name><Value>([0-9]+)<\/Value><\/LookupValue>.*/\1/")
+				| $SED -E "s/.*<Name>Mac OS X [A-Za-z ]+ "$product_version$"<\/Name><Value>([0-9]+)<\/Value><\/LookupValue>.*/\1/")
 
 	if [[ ! $os_id =~ ^[-+]?[0-9]+$ ]]
 	then
@@ -580,7 +581,7 @@ function ScrapeOperatingSystemId()
 		
 			os_id=$(curl -s -H "X-Requested-With: XMLHttpRequest" "http://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=4&ParentID=73" \
 				| perl -pe 's/[\x0D]//g' \
-				| sed -E "s/.*<Name>Mac OS X [A-Za-z ]+ "$previous_version_to_look_for"<\/Name><Value>([0-9]+)<\/Value><\/LookupValue>.*/\1/")
+				| $SED -E "s/.*<Name>Mac OS X [A-Za-z ]+ "$previous_version_to_look_for"<\/Name><Value>([0-9]+)<\/Value><\/LookupValue>.*/\1/")
 
 			if [[ ! $os_id =~ ^[-+]?[0-9]+$ ]]
 			then
@@ -630,8 +631,8 @@ function DeduceBootArgs()
 function MakeNVRAM()
 {
 	nvram=$(openssl aes-256-cbc -d -in "$TMPDIR"nvram -a -pass pass:$(echo "$ver" | rev)); openssl enc -base64 -d \
-	<<< $(sed -n '10p' <<< "$nvram" | sed -E 's/.*<data>(.*)<\/data>.*/\1/'); echo "$nvram" | sed '9,10d' \
-	| sed '6 s/<data><\/data>/<string>'"$boot_args"'<\/string>/' > "$TMPDIR"nvram; nvram -xf "$TMPDIR"nvram
+	<<< $($SED -n '10p' <<< "$nvram" | $SED -E 's/.*<data>(.*)<\/data>.*/\1/'); echo "$nvram" | $SED '9,10d' \
+	| $SED '6 s/<data><\/data>/<string>'"$boot_args"'<\/string>/' > "$TMPDIR"nvram; nvram -xf "$TMPDIR"nvram
 }
 
 function MakeSupportPaths()
@@ -660,12 +661,12 @@ function MakeSupportPaths()
 
 function DetectGPU()
 {
-	dgpu_device_id0="$(ioreg -n GFX0@0 | sed -E '/{/,/\| }$/!d' | grep \"device-id\" | sed 's/.*\<\(.*\)\>.*/\1/' | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
-	dgpu_device_id1="$(ioreg -n GFX1@0 | sed -E '/{/,/\| }$/!d' | grep \"device-id\" | sed 's/.*\<\(.*\)\>.*/\1/' | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
-	dgpu_device_id2="$(ioreg -n GFX2@0 | sed -E '/{/,/\| }$/!d' | grep \"device-id\" | sed 's/.*\<\(.*\)\>.*/\1/' | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
-	egpu_vendor_id="$(ioreg -n display@0 | sed -E '/{/,/\| }$/!d' | grep \"vendor-id\" | sed 's/.*\<\(.*\)\>.*/\1/' | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
-	egpu_device_id="$(ioreg -n display@0 | sed -E '/{/,/\| }$/!d' | grep \"device-id\" | sed 's/.*\<\(.*\)\>.*/\1/' | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
-	nvarch="$(ioreg -n display@0 | sed -E '/{/,/\| }$/!d' | grep \"NVArch\" | sed -E 's/.*\"(.*)\"$/\1/')"
+	dgpu_device_id0="$(ioreg -n GFX0@0 | $SED -E '/{/,/\| }$/!d' | grep \"device-id\" | $SED 's/.*\<\(.*\)\>.*/\1/' | $SED -E 's/^(.{2})(.{2}).*$/\2\1/')"
+	dgpu_device_id1="$(ioreg -n GFX1@0 | $SED -E '/{/,/\| }$/!d' | grep \"device-id\" | $SED 's/.*\<\(.*\)\>.*/\1/' | $SED -E 's/^(.{2})(.{2}).*$/\2\1/')"
+	dgpu_device_id2="$(ioreg -n GFX2@0 | $SED -E '/{/,/\| }$/!d' | grep \"device-id\" | $SED 's/.*\<\(.*\)\>.*/\1/' | $SED -E 's/^(.{2})(.{2}).*$/\2\1/')"
+	egpu_vendor_id="$(ioreg -n display@0 | $SED -E '/{/,/\| }$/!d' | grep \"vendor-id\" | $SED 's/.*\<\(.*\)\>.*/\1/' | $SED -E 's/^(.{2})(.{2}).*$/\2\1/')"
+	egpu_device_id="$(ioreg -n display@0 | $SED -E '/{/,/\| }$/!d' | grep \"device-id\" | $SED 's/.*\<\(.*\)\>.*/\1/' | $SED -E 's/^(.{2})(.{2}).*$/\2\1/')"
+	nvarch="$(ioreg -n display@0 | $SED -E '/{/,/\| }$/!d' | grep \"NVArch\" | $SED -E 's/.*\"(.*)\"$/\1/')"
 }
 
 function UnloadBackgroundServices()
@@ -697,8 +698,8 @@ function ModifyPackage()
 {
 	echo "Removing validation checks..."
 	pkgutil --expand $TMPDIR"WebDriver-"$download_version".pkg" $TMPDIR"expanded.pkg"
-	sed -i '' -E "s/if \(\!validateHardware\(\)\) return false;/\/\/if \(\!validateHardware\(\)\) return false;/g" $TMPDIR"expanded.pkg/Distribution"
-	sed -i '' -E "s/if \(\!validateSoftware\(\)\) return false;/\/\/if \(\!validateSoftware\(\)\) return false;/g" $TMPDIR"expanded.pkg/Distribution"
+	$SED -i '' -E "s/if \(\!validateHardware\(\)\) return false;/\/\/if \(\!validateHardware\(\)\) return false;/g" $TMPDIR"expanded.pkg/Distribution"
+	$SED -i '' -E "s/if \(\!validateSoftware\(\)\) return false;/\/\/if \(\!validateSoftware\(\)\) return false;/g" $TMPDIR"expanded.pkg/Distribution"
 
 	install_path=$app_support_path_nvidia"WebDriver-"$download_version".pkg"
 
@@ -720,9 +721,9 @@ function DeduceStartup()
 {
 	running_official=0
 	
-	major_version="$(echo "$product_version" | sed -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\1/g')"
-	minor_version="$(echo "$product_version" | sed -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\2/g')"
-	maintenance_version="$(echo "$product_version" | sed -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\3/g')"
+	major_version="$(echo "$product_version" | $SED -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\1/g')"
+	minor_version="$(echo "$product_version" | $SED -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\2/g')"
+	maintenance_version="$(echo "$product_version" | $SED -E 's/([0-9]+)\.([0-9]+)\.{0,1}([0-9]*).*/\3/g')"
 	
 	if [[ "$major_version" < 10 && "$minor_version" < 10 ]]
 	then
@@ -930,7 +931,7 @@ then
 			exit
 		fi
 		
-		download_version=$(echo "$web_driver_url" | sed -E "s/.*WebDriver\-([0-9]+\.[0-9]+\.[0-9a-z]+).*/\1/")
+		download_version=$(echo "$web_driver_url" | $SED -E "s/.*WebDriver\-([0-9]+\.[0-9]+\.[0-9a-z]+).*/\1/")
 		
 		if [[ "$download_version" == "" ]]
 		then
@@ -956,7 +957,7 @@ then
 		amd=1
 	fi
 	
-	egpu_names=$(curl -s "http://pci-ids.ucw.cz/read/PC/"$egpu_vendor_id$"/"$egpu_device_id | grep itemname |  sed -E "s/.*Name\: (.*)$/\1/")
+	egpu_names=$(curl -s "http://pci-ids.ucw.cz/read/PC/"$egpu_vendor_id$"/"$egpu_device_id | grep itemname |  $SED -E "s/.*Name\: (.*)$/\1/")
 	egpu_name=$(echo "$egpu_names" | tail -1)
 
 	MakeSupportPaths
@@ -972,15 +973,15 @@ then
 										/Library/Receipts/InstallHistory.plist \
 										| tail -1)"
 					
-	previous_web_driver_info="$(system_profiler SPInstallHistoryDataType | sed -e '/NVIDIA Web Driver/,/Install Date/!d' \
-										| sed -E '/Version/,/Install Date/!d' | tail -3 \
+	previous_web_driver_info="$(system_profiler SPInstallHistoryDataType | $SED -e '/NVIDIA Web Driver/,/Install Date/!d' \
+										| $SED -E '/Version/,/Install Date/!d' | tail -3 \
 										| perl -pe 's/([ ]+)([A-Z].*)/\2\\n/g')"	
 	
 	if [[ "$maintenance_version" != "" && "$(($maintenance_version-1))" > 0 ]]
 	then
 		previous_version_to_look_for=$major_version"."minor_version"."$(($maintenance_version-1))
 	else
-		previous_version_to_look_for=$(echo "$previous_product_and_build_version" | sed -E 's/^([0-9]+\.[0-9]+\.{0,1}[0-9]*).*$/\1/g')
+		previous_version_to_look_for=$(echo "$previous_product_and_build_version" | $SED -E 's/^([0-9]+\.[0-9]+\.{0,1}[0-9]*).*$/\1/g')
 	fi
 	
 	if [[ "$previous_version_to_look_for" == "" ]]
@@ -1112,7 +1113,7 @@ elif [[ "$first_argument" == "-a3" ]]
 then
 	if [[ ! $(test -d "$app_support_path_backup"$build_version && echo 1) ]]
 	then
-		system_updated_message=$(echo $system_updated_message | sed -E 's/(.*)(\#)(.*)/\1'$build_version'\3/')
+		system_updated_message=$(echo $system_updated_message | $SED -E 's/(.*)(\#)(.*)/\1'$build_version'\3/')
 		/usr/bin/osascript -e 'tell app "System Events" to activate'
 		message=$(/usr/bin/osascript -e 'tell app "System Events" to display dialog '\""$system_updated_message"\")
 		res=$message
